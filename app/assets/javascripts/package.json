@@ -14,6 +14,7 @@
     "pretty-text",
     "select-kit",
     "truth-helpers",
-    "wizard"
+    "wizard",
+    "rtlcss-miniracer"
   ]
 }
