@@ -589,7 +589,8 @@ export default function (options) {
       c -= 1;
     }
 
-    let start, end;
+    let start = null;
+    let end = null;
 
     let initial = c;
 
