@@ -1457,9 +1457,10 @@ RSpec.describe CookedPostProcessor do
         end
 
         context "with video upload" do
-          SiteSetting.authorized_extensions = "png|jpg|gif|mp4"
+          before do
+            SiteSetting.authorized_extensions = "mp4"
+          end
 
-          #before { SiteSetting.authorized_extensions = "" }
           fab!(:video_upload) { Fabricate(:video_upload) }
 
           it "works" do
