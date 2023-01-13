@@ -91,7 +91,6 @@ export default function (options) {
   let autocompleteOptions = null;
   let selectedOption = null;
   let completeStart = null;
-  let completeEnd = null;
   let me = this;
   let div = null;
   let scrollElement = null;
@@ -218,6 +217,8 @@ export default function (options) {
   }
 
   let completeTerm = async function (term) {
+    let completeEnd = null;
+
     if (term) {
       if (isInput) {
         me.val("");
@@ -553,7 +554,6 @@ export default function (options) {
 
         if (match) {
           completeStart = cp - match[0].length;
-          completeEnd = completeStart + match[0].length - 1;
           let term = match[0].substring(1, match[0].length);
           updateAutoComplete(dataSource(term, options));
         }
@@ -567,7 +567,7 @@ export default function (options) {
           checkTriggerRule() &&
           (!prevChar || allowedLettersRegex.test(prevChar))
         ) {
-          completeStart = completeEnd = cp - 1;
+          completeStart = cp - 1;
           updateAutoComplete(dataSource("", options));
         }
       }
@@ -664,7 +664,6 @@ export default function (options) {
       completeStart = position.completeStart;
 
       if (position.completeEnd) {
-        completeEnd = position.completeEnd;
         updateAutoComplete(dataSource(position.term, options));
         return true;
       }
@@ -747,7 +746,6 @@ export default function (options) {
         case keys.backSpace:
           autocompleteOptions = null;
           cp--;
-          completeEnd = cp;
 
           if (cp < 0) {
             closeAutocomplete();
@@ -771,7 +769,6 @@ export default function (options) {
           return true;
         default:
           autocompleteOptions = null;
-          completeEnd = cp;
           return true;
       }
     }
