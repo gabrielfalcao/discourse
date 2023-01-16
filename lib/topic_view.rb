@@ -747,6 +747,7 @@ class TopicView
     # [0] = ""    – there is no mentions in this post
     # [1] = "1,2" – users with ids 1 and 2 are mentioned in this post
     # [2] = nil   – there is no cache for this post yet
+    #
 
     mentions = {}
     mentions_by_post.each_with_index do |value, index|
@@ -756,25 +757,31 @@ class TopicView
       end
     end
 
-    to_cache = {}
+    parsed_mentions = {}
     mentions_by_post.each_with_index do |item, index|
       if item.nil?
         post_id = post_ids[index]
         usernames = @posts[index].parse_mentioned_usernames
-        to_cache[post_id] = usernames
+        parsed_mentions[post_id] = usernames
       end
     end
 
     usernames_to_user_ids = User
-      .where(username: to_cache.values.flatten)
+      .where(username: parsed_mentions.values.flatten)
       .pluck(:id, :username)
       .to_h { |u| [u[1], u[0] ]}
 
-    to_cache.each do |post_id, usernames|
+    mentions_to_cache = []
+    parsed_mentions.each do |post_id, usernames|
       user_ids = usernames.map {|username| usernames_to_user_ids[username]}
-      # todo set in one call
-      Discourse.redis.hset("post_mentions", post_id, user_ids.join(","))
       mentions[post_id] = user_ids
+
+      mentions_to_cache << post_id
+      mentions_to_cache << user_ids.join(",")
+    end
+
+    if mentions_to_cache.length >=2
+      Discourse.redis.hmset("post_mentions", *mentions_to_cache)
     end
 
     mentions
