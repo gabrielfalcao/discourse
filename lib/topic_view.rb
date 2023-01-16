@@ -749,7 +749,7 @@ class TopicView
     # [2] = nil   – there is no cache for this post yet
     #
 
-    mentions = {}
+    mentions_from_cache = {}
     parsed_mentions = {}
     mentions_by_post.each_with_index do |value, index|
       post_id = post_ids[index]
@@ -757,7 +757,7 @@ class TopicView
         usernames = @posts[index].parse_mentioned_usernames
         parsed_mentions[post_id] = usernames
       else
-        mentions[post_id] = value.split(",").map(&:to_i)
+        mentions_from_cache[post_id] = value.split(",").map(&:to_i)
       end
     end
 
@@ -770,7 +770,7 @@ class TopicView
       mentions_to_cache = []
       parsed_mentions.each do |post_id, usernames|
         user_ids = usernames.map {|username| usernames_to_user_ids[username]}
-        mentions[post_id] = user_ids
+        mentions_from_cache[post_id] = user_ids
 
         mentions_to_cache << post_id
         mentions_to_cache << user_ids.join(",")
@@ -779,7 +779,7 @@ class TopicView
       Discourse.redis.hmset("post_mentions", *mentions_to_cache)
     end
 
-    mentions
+    mentions_from_cache
   end
 
   def parse_and_cache_mentions(post)
