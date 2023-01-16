@@ -750,13 +750,12 @@ class TopicView
 
     mentions = {}
     mentions_by_post.each_with_index do |value, index|
-      if value.present?
+      unless value.nil?
         post_id = post_ids[index]
-        mentions[post_id] = value.split(",")
+        mentions[post_id] = value.split(",").map(&:to_i)
       end
     end
 
-    # first, we parse and cache what wasn't cached before
     to_cache = {}
     mentions_by_post.each_with_index do |item, index|
       if item.nil?
@@ -772,9 +771,9 @@ class TopicView
       .to_h { |u| [u[1], u[0] ]}
 
     to_cache.each do |post_id, usernames|
-      user_ids = usernames.map {|username| usernames_to_user_ids[username]}.join(",")
+      user_ids = usernames.map {|username| usernames_to_user_ids[username]}
       # todo set in one call
-      Discourse.redis.hset("post_mentions", post_id, user_ids)
+      Discourse.redis.hset("post_mentions", post_id, user_ids.join(","))
       mentions[post_id] = user_ids
     end
 
