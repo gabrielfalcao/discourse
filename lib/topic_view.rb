@@ -750,37 +750,32 @@ class TopicView
     #
 
     mentions = {}
+    parsed_mentions = {}
     mentions_by_post.each_with_index do |value, index|
-      unless value.nil?
-        post_id = post_ids[index]
+      post_id = post_ids[index]
+      if value.nil?
+        usernames = @posts[index].parse_mentioned_usernames
+        parsed_mentions[post_id] = usernames
+      else
         mentions[post_id] = value.split(",").map(&:to_i)
       end
     end
 
-    parsed_mentions = {}
-    mentions_by_post.each_with_index do |item, index|
-      if item.nil?
-        post_id = post_ids[index]
-        usernames = @posts[index].parse_mentioned_usernames
-        parsed_mentions[post_id] = usernames
+    if parsed_mentions.any?
+      usernames_to_user_ids = User
+        .where(username: parsed_mentions.values.flatten)
+        .pluck(:id, :username)
+        .to_h { |u| [u[1], u[0] ]}
+
+      mentions_to_cache = []
+      parsed_mentions.each do |post_id, usernames|
+        user_ids = usernames.map {|username| usernames_to_user_ids[username]}
+        mentions[post_id] = user_ids
+
+        mentions_to_cache << post_id
+        mentions_to_cache << user_ids.join(",")
       end
-    end
 
-    usernames_to_user_ids = User
-      .where(username: parsed_mentions.values.flatten)
-      .pluck(:id, :username)
-      .to_h { |u| [u[1], u[0] ]}
-
-    mentions_to_cache = []
-    parsed_mentions.each do |post_id, usernames|
-      user_ids = usernames.map {|username| usernames_to_user_ids[username]}
-      mentions[post_id] = user_ids
-
-      mentions_to_cache << post_id
-      mentions_to_cache << user_ids.join(",")
-    end
-
-    if mentions_to_cache.length >=2
       Discourse.redis.hmset("post_mentions", *mentions_to_cache)
     end
 
