@@ -543,21 +543,21 @@ class TopicView
     @reviewable_counts ||=
       begin
         sql = <<~SQL
-        SELECT
-          target_id,
-          MAX(r.id) reviewable_id,
-          COUNT(*) total,
-          SUM(CASE WHEN s.status = :pending THEN 1 ELSE 0 END) pending
-        FROM
-          reviewables r
-        JOIN
-          reviewable_scores s ON reviewable_id = r.id
-        WHERE
-          r.target_id IN (:post_ids) AND
-          r.target_type = 'Post' AND
-          COALESCE(s.reason, '') != 'category'
-        GROUP BY
-          target_id
+          SELECT
+            target_id,
+            MAX(r.id) reviewable_id,
+            COUNT(*) total,
+            SUM(CASE WHEN s.status = :pending THEN 1 ELSE 0 END) pending
+          FROM
+            reviewables r
+          JOIN
+            reviewable_scores s ON reviewable_id = r.id
+          WHERE
+            r.target_id IN (:post_ids) AND
+            r.target_type = 'Post' AND
+            COALESCE(s.reason, '') != 'category'
+          GROUP BY
+            target_id
       SQL
 
         counts = {}
@@ -722,20 +722,66 @@ class TopicView
   private
 
   def load_mentioned_users
-    mentions = @posts.to_h { |p| [p.id, p.parse_mentioned_usernames] }
+    mentions = load_mentions
+    users = load_users(id: mentions.values.flatten)
 
-    uniq_usernames = mentions.values.flatten.uniq
-    users = User.where(username: uniq_usernames)
+    @mentioned_users = mentions.map do |post_id, user_ids|
+      mentioned_users = user_ids.map { |id| users[id] }
+      [post_id, mentioned_users]
+    end.to_h
+  end
+
+  def load_users(ids)
+    users = User.where(id: ids)
     users = users.includes(:user_status) if SiteSetting.enable_user_status
-    users = users.to_h { |u| [u.username, u] }
+    users.to_h { |u| [u.id, u] }
+  end
 
-    @mentioned_users =
-      mentions
-        .map do |post_id, usernames|
-        post_mentions = usernames.map { |u| users[u] }.compact
-        [post_id, post_mentions]
+  def load_mentions
+    post_ids = @posts.map(&:id)
+    mentions_by_post = Discourse.redis.hmget("post_mentions", post_ids)
+
+    #
+    # here's what redis.hmget returns
+    #
+    # [0] = ""    – there is no mentions in this post
+    # [1] = "1,2" – users with ids 1 and 2 are mentioned in this post
+    # [2] = nil   – there is no cache for this post yet
+
+    mentions = {}
+    mentions_by_post.each_with_index do |value, index|
+      if value.present?
+        post_id = post_ids[index]
+        mentions[post_id] = value.split(",")
       end
-        .to_h
+    end
+
+    # first, we parse and cache what wasn't cached before
+    to_cache = {}
+    mentions_by_post.each_with_index do |item, index|
+      if item.nil?
+        post_id = post_ids[index]
+        usernames = @posts[index].parse_mentioned_usernames
+        to_cache[post_id] = usernames
+      end
+    end
+
+    usernames_to_user_ids = User
+      .where(username: to_cache.values.flatten)
+      .pluck(:id, :username)
+      .to_h { |u| [u[1], u[0] ]}
+
+    to_cache.each do |post_id, usernames|
+      user_ids = usernames.map {|username| usernames_to_user_ids[username]}.join(",")
+      Discourse.redis.hset("post_mentions", post_id, user_ids)
+      mentions[post_id, user_ids]
+    end
+
+    mentions
+  end
+
+  def parse_and_cache_mentions(post)
+    Discourse.redis.hmget("post_mentions", post_ids)
   end
 
   def calculate_page
@@ -929,17 +975,17 @@ class TopicView
     if @filter_upwards_post_id.present?
       post = Post.find(@filter_upwards_post_id)
       post_ids = DB.query_single(<<~SQL, post_id: post.id, topic_id: post.topic_id)
-      WITH RECURSIVE breadcrumb(id, reply_to_post_number) AS (
-            SELECT p.id, p.reply_to_post_number FROM posts AS p
-              WHERE p.id = :post_id
-            UNION
-              SELECT p.id, p.reply_to_post_number FROM posts AS p, breadcrumb
-                WHERE breadcrumb.reply_to_post_number = p.post_number
-                  AND p.topic_id = :topic_id
-          )
-      SELECT id from breadcrumb
-      WHERE id <> :post_id
-      ORDER by id
+        WITH RECURSIVE breadcrumb(id, reply_to_post_number) AS (
+              SELECT p.id, p.reply_to_post_number FROM posts AS p
+                WHERE p.id = :post_id
+              UNION
+                SELECT p.id, p.reply_to_post_number FROM posts AS p, breadcrumb
+                  WHERE breadcrumb.reply_to_post_number = p.post_number
+                    AND p.topic_id = :topic_id
+            )
+        SELECT id from breadcrumb
+        WHERE id <> :post_id
+        ORDER by id
       SQL
 
       post_ids = (post_ids[(0 - SiteSetting.max_reply_history)..-1] || post_ids)
