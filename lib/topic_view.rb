@@ -722,7 +722,7 @@ class TopicView
   private
 
   def load_mentioned_users
-    mentions = @posts.to_h { |p| [p.id, p.mentioned_usernames] }
+    mentions = @posts.to_h { |p| [p.id, p.parse_mentioned_usernames] }
 
     uniq_usernames = mentions.values.flatten.uniq
     users = User.where(username: uniq_usernames)

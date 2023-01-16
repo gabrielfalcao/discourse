@@ -1203,15 +1203,15 @@ class Post < ActiveRecord::Base
       Rails.logger.warn "hitting cache get, post id #{id}"
       Discourse.redis.hget("post_mentions", id).split(",").map(&:to_i)
     else
-      mentioned_users_ids = load_user_ids(mentioned_usernames)
+      mentioned_usernames = parse_mentioned_usernames
+      mentioned_ids = load_user_ids(mentioned_usernames)
       Rails.logger.warn "hitting cache set, post id #{id}"
-      Discourse.redis.hset("post_mentions", id, mentioned_users_ids.join(","))
-      mentioned_users_ids
+      Discourse.redis.hset("post_mentions", id, mentioned_ids.join(","))
+      mentioned_ids
     end
   end
 
-  def mentioned_usernames
-    # fixme memoize
+  def parse_mentioned_usernames
     PrettyText.extract_mentions(Nokogiri::HTML5.fragment(cooked))
   end
 
