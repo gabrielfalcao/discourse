@@ -723,7 +723,7 @@ class TopicView
 
   def load_mentioned_users
     mentions = load_mentions
-    users = load_users(id: mentions.values.flatten)
+    users = load_users(mentions.values.flatten.uniq)
 
     @mentioned_users = mentions.map do |post_id, user_ids|
       mentioned_users = user_ids.map { |id| users[id] }
@@ -773,8 +773,9 @@ class TopicView
 
     to_cache.each do |post_id, usernames|
       user_ids = usernames.map {|username| usernames_to_user_ids[username]}.join(",")
+      # todo set in one call
       Discourse.redis.hset("post_mentions", post_id, user_ids)
-      mentions[post_id, user_ids]
+      mentions[post_id] = user_ids
     end
 
     mentions
