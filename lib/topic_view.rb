@@ -722,19 +722,19 @@ class TopicView
   private
 
   def load_mentioned_users
-    mentions = @posts.to_h { |p| [p.id, p.mentions] }
+    mentions = @posts.to_h { |p| [p.id, p.mentioned_usernames] }
 
-    uniq_ids = mentions.values.flatten.uniq
-    users = User.where(id: uniq_ids)
+    uniq_usernames = mentions.values.flatten.uniq
+    users = User.where(username: uniq_usernames)
     users = users.includes(:user_status) if SiteSetting.enable_user_status
-    users = users.to_h { |u| [u.id, u] }
+    users = users.to_h { |u| [u.username, u] }
 
     @mentioned_users =
       mentions
-        .map do |post_id, user_ids|
-          post_mentions = user_ids.map { |id| users[id] }.compact
-          [post_id, post_mentions]
-        end
+        .map do |post_id, usernames|
+        post_mentions = usernames.map { |u| users[u] }.compact
+        [post_id, post_mentions]
+      end
         .to_h
   end
 
