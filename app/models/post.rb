@@ -1200,20 +1200,22 @@ class Post < ActiveRecord::Base
 
   def mentions
     if Discourse.redis.hexists("post_mentions", id)
+      Rails.logger.warn "hitting cache get, post id #{id}"
       Discourse.redis.hget("post_mentions", id).split(",").map(&:to_i)
     else
-      extracted_mentions = extract_mentions
-      Discourse.redis.hset("post_mentions", id, extracted_mentions.join(","))
-      extracted_mentions
+      mentioned_users_ids = load_user_ids(mentioned_usernames)
+      Rails.logger.warn "hitting cache set, post id #{id}"
+      Discourse.redis.hset("post_mentions", id, mentioned_users_ids.join(","))
+      mentioned_users_ids
     end
   end
 
-  private
-
-  def extract_mentions
-    usernames = PrettyText.extract_mentions(Nokogiri::HTML5.fragment(cooked))
-    load_user_ids(usernames)
+  def mentioned_usernames
+    # fixme memoize
+    PrettyText.extract_mentions(Nokogiri::HTML5.fragment(cooked))
   end
+
+  private
 
   def load_user_ids(usernames)
     User.where(username: usernames).pluck(:id)
