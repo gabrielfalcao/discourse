@@ -750,25 +750,25 @@ class TopicView
     #
 
     mentions_from_cache = {}
-    parsed_mentions = {}
+    posts_to_parse = []
     mentions_by_post.each_with_index do |value, index|
-      post_id = post_ids[index]
       if value.nil?
-        usernames = @posts[index].parse_mentioned_usernames
-        parsed_mentions[post_id] = usernames
+        posts_to_parse << post_ids[index]
       else
+        post_id = post_ids[index]
         mentions_from_cache[post_id] = value.split(",").map(&:to_i)
       end
     end
 
-    if parsed_mentions.any?
+    if posts_to_parse.any?
       usernames_to_user_ids = User
-        .where(username: parsed_mentions.values.flatten.uniq)
+        .where(username: posts_to_parse.values.flatten.uniq)
         .pluck(:id, :username)
         .to_h { |u| [u[1], u[0] ]}
 
       mentions_to_cache = []
-      parsed_mentions.each do |post_id, usernames|
+      posts_to_parse.each do |post_id|
+        usernames = @posts[post_id].parse_mentioned_usernames
         user_ids = usernames.map {|username| usernames_to_user_ids[username]}
         mentions_from_cache[post_id] = user_ids
 
