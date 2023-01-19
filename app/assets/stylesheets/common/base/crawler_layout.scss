@@ -61,6 +61,7 @@ body > noscript {
       }
       th:first-of-type {
         width: 40%;
+        text-align: left;
       }
       @media screen and (min-width: 500px) {
         th {
@@ -157,6 +158,9 @@ body > noscript {
         max-width: 100%;
         height: auto;
       }
+    }
+    .topic-body {
+      float: unset;
     }
   }
 
@@ -281,5 +285,26 @@ body > noscript {
       display: inline-block;
       padding: 0.5em 1em 0.5em 0;
     }
+  }
+}
+
+.buorg {
+  background: #fdf2ab;
+  text-align: left;
+  font-family: sans-serif;
+  color: #000;
+  font-size: 14px;
+}
+.buorg div {
+  padding: 8px;
+}
+.buorg a,
+.buorg a:visited {
+  color: #e25600;
+  text-decoration: underline;
+}
+@media print {
+  .buorg {
+    display: none !important;
   }
 }
